@@ -47,15 +47,15 @@ button {
 
 <h3>Sijainti</h3>
 <select id="location">
-  <option value="1.2">Uimaranta</option>
-  <option value="1.0">Puisto</option>
-  <option value="0.9">Kauppakeskus</option>
+  <option value="beach">Uimaranta</option>
+  <option value="park">Puisto</option>
+  <option value="mall">Kauppakeskus</option>
 </select>
 
 <div class="info">
-Uimaranta = suuri myyntipotentiaali, mutta sääherkkä.<br>
-Puisto = tasainen ja ennustettava.<br>
-Kauppakeskus = vakaa mutta matalampi huippumyynti.
+<strong>Uimaranta:</strong> Erittäin sääherkkä, huippumyynti helteellä.<br>
+<strong>Puisto:</strong> Tasainen, toimii useimmilla säillä.<br>
+<strong>Kauppakeskus:</strong> Vakaata kysyntää, hyötyy huonosta säästä.
 </div>
 
 <h3>Hinnoittelu ja tilaus</h3>
@@ -67,6 +67,8 @@ Kauppakeskus = vakaa mutta matalampi huippumyynti.
 <input type="number" id="packages" value="8" min="0"><br><br>
 
 <div class="calc" id="calculator"></div>
+
+<div class="info" id="forecast"></div>
 
 <button id="playButton">Pelaa viikko</button>
 
@@ -92,6 +94,7 @@ let totalRevenue = 0;
 let totalCosts = 0;
 let goodWeeks = 0;
 let badWeeks = 0;
+let forecastWeather = 0;
 
 /* ---- ELEMENTIT ---- */
 const priceInput = document.getElementById("price");
@@ -102,8 +105,34 @@ const weekNumber = document.getElementById("weekNumber");
 const reportArea = document.getElementById("reportArea");
 const gameArea = document.getElementById("gameArea");
 const playButton = document.getElementById("playButton");
+const forecastBox = document.getElementById("forecast");
+const locationSelect = document.getElementById("location");
 
-/* ---- KANNATTAVUUSLASKURI ---- */
+/* ---- SÄÄN KUVAUS ---- */
+function weatherDescription(value) {
+  if (value <= 1) return "Kylmää ja rankkasadetta";
+  if (value <= 3) return "Hyvin sateista";
+  if (value <= 5) return "Vaihtelevaa";
+  if (value <= 7) return "Lämmin kesäsää";
+  if (value <= 9) return "Erittäin lämmin kesäsää";
+  return "Helle";
+}
+
+/* ---- SÄÄKERROIN SIJAINNIN MUKAAN ---- */
+function weatherFactor(weather, location) {
+  if (location === "beach") {
+    return Math.max(0.2, weather / 10); // huono sää tappaa myynnin
+  }
+  if (location === "park") {
+    return 0.6 + weather / 20; // tasainen
+  }
+  if (location === "mall") {
+    return 1.1 - weather / 25; // huono sää = etu
+  }
+  return 1;
+}
+
+/* ---- KANNATTAVUUSLASKURI + ENNUSTE ---- */
 function updateCalculator() {
   const price = Number(priceInput.value);
   const variableCost = packagePrice / portionsPerPackage;
@@ -112,30 +141,37 @@ function updateCalculator() {
   if (contribution <= 0) {
     calculator.innerHTML =
       "⚠️ Tällä hinnalla et saa katettua edes muuttuvia kustannuksia.";
-    return;
+  } else {
+    const neededPortions = Math.ceil(fixedCost / contribution);
+    const neededPackages = Math.ceil(neededPortions / portionsPerPackage);
+
+    calculator.innerHTML =
+      `<strong>Kriittinen piste:</strong><br>
+       ${neededPortions} annosta / viikko<br>
+       (${neededPackages} pakettia)`;
   }
 
-  const neededPortions = Math.ceil(fixedCost / contribution);
-  const neededPackages = Math.ceil(neededPortions / portionsPerPackage);
+  forecastWeather = Math.floor(Math.random() * 11);
+  const error = Math.floor(Math.random() * 5) - 2;
+  let shownForecast = forecastWeather + error;
+  shownForecast = Math.max(0, Math.min(10, shownForecast));
 
-  calculator.innerHTML =
-    `<strong>Kriittinen piste:</strong><br>
-     ${neededPortions} annosta / viikko<br>
-     (${neededPackages} pakettia)`;
+  forecastBox.innerHTML =
+    `<strong>Sääennuste:</strong> ${shownForecast}/10<br>
+     (${weatherDescription(shownForecast)})`;
 }
 
-/* ---- VIIKON PELAAMINEN ---- */
+/* ---- VIIKKO ---- */
 function playWeek() {
   const price = Number(priceInput.value);
   const orderedPackages = Number(packagesInput.value);
-  const locationFactor = Number(document.getElementById("location").value);
+  const location = locationSelect.value;
 
-  const weather = Math.floor(Math.random() * 11); // 0–10
+  const weather = forecastWeather;
+  const factor = weatherFactor(weather, location);
   const maxSales = orderedPackages * portionsPerPackage;
 
-  const baseDemand =
-    600 * (weather / 10) * locationFactor * (5 / price);
-
+  const baseDemand = 600 * factor * (5 / price);
   const sales = Math.min(maxSales, Math.round(baseDemand));
 
   const revenue = sales * price;
@@ -149,16 +185,17 @@ function playWeek() {
   else badWeeks++;
 
   result.innerHTML =
-    `<strong>Sää:</strong> ${weather}/10<br>
+    `<strong>Toteutunut sää:</strong> ${weather}/10<br>
+     (${weatherDescription(weather)})<br>
+     <strong>Sijainnin vaikutus:</strong> ${factor.toFixed(2)}<br>
      <strong>Myynti:</strong> ${sales} annosta<br>
      <strong>Viikon tulos:</strong> ${profit.toFixed(0)} €`;
 
   week++;
   weekNumber.textContent = week;
 
-  if (week > totalWeeks) {
-    endGame();
-  }
+  if (week > totalWeeks) endGame();
+  else updateCalculator();
 }
 
 /* ---- LOPPURAPORTTI ---- */
@@ -170,7 +207,6 @@ function endGame() {
   reportArea.classList.remove("hidden");
   reportArea.innerHTML = `
     <h2>📄 Loppuraportti</h2>
-    <p><strong>Kesätyöjakso:</strong> 12 viikkoa</p>
     <p><strong>Liikevaihto:</strong> ${totalRevenue.toFixed(0)} €</p>
     <p><strong>Kustannukset:</strong> ${totalCosts.toFixed(0)} €</p>
     <p><strong>Tulos ennen veroja:</strong> ${finalProfit.toFixed(0)} €</p>
@@ -178,8 +214,8 @@ function endGame() {
     <p><strong>Huonoja viikkoja:</strong> ${badWeeks}</p>
     <p><strong>Kokonaisarvio:</strong><br>
       ${finalProfit > 0
-        ? "Kesä oli kannattava. Hinnoittelu ja tilaukset osuivat hyvin."
-        : "Kesä oli haastava. Riskit olivat suuria tai kysyntä jäi heikoksi."}
+        ? "Sijainti ja hinnoittelu tukivat toisiaan."
+        : "Sää ja sijainti aiheuttivat haasteita."}
     </p>
   `;
 }
@@ -187,6 +223,7 @@ function endGame() {
 /* ---- TAPAHTUMAT ---- */
 priceInput.addEventListener("input", updateCalculator);
 packagesInput.addEventListener("input", updateCalculator);
+locationSelect.addEventListener("change", updateCalculator);
 playButton.addEventListener("click", playWeek);
 
 /* ---- ALUSTUS ---- */
