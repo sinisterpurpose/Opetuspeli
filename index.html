@@ -2,20 +2,61 @@
 <html lang="fi">
 <head>
 <meta charset="UTF-8">
-<title>Testi</title>
+<title>Jäätelökioski</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  padding: 20px;
+}
+
+.box {
+  background: white;
+  padding: 20px;
+  max-width: 800px;
+  margin: auto;
+}
+
+.info {
+  background: #fef5e7;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.calc {
+  background: #e8f8f5;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+button {
+  padding: 10px 20px;
+  font-size: 16px;
+}
+</style>
 </head>
 
 <body>
-<h1>TESTI</h1>
 
-<p>Jos näet tämän, HTML latautuu.</p>
+<div class="box">
 
-<label>Pakettien määrä:</label>
-<input type="number" value="5">
+<h1>🍦 Jäätelökioski</h1>
 
-<br><br>
+<h3>Valitse kioskin sijainti</h3>
+<select id="location">
+  <option value="1.2">Uimaranta</option>
+  <option value="1.0">Puisto</option>
+  <option value="0.9">Kauppakeskus</option>
+</select>
 
-<button>Pelaa viikko</button>
+<div class="info">
+Uimaranta = suuri myyntipotentiaali, mutta sääherkkä.<br>
+Puisto = tasainen ja ennustettava.<br>
+Kauppakeskus = vakaa mutta matalampi huippumyynti.
+</div>
 
-</body>
-</html>
+<h3>Hinnoittelu</h3>
+
+<label>Jäätelön hinta (€ / annos)</label><br>
+<input type="number" id="price" value="3.5" ste
