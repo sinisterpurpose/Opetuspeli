@@ -59,4 +59,73 @@ Kauppakeskus = vakaa mutta matalampi huippumyynti.
 <h3>Hinnoittelu</h3>
 
 <label>Jäätelön hinta (€ / annos)</label><br>
-<input type="number" id="price" value="3.5" ste
+<input type="number" id="price" value="3.5" step="0.1"><br><br>
+
+<label>Tilattavat jäätelöpaketit (1 paketti = 50 annosta)</label><br>
+<input type="number" id="packages" value="8"><br><br>
+
+<input type="checkbox" id="worker"> Palkkaa kesätyöntekijä<br><br>
+
+<div class="calc" id="calculator"></div>
+
+<button id="playButton">Pelaa viikko</button>
+
+<hr>
+
+<div id="result"></div>
+
+</div>
+
+<script>
+const fixedCost = 500;
+const packagePrice = 30;
+const portionsPerPackage = 50;
+let week = 1;
+
+function updateCalculator() {
+  const price = Number(document.getElementById("price").value);
+  const contribution = price - (packagePrice / portionsPerPackage);
+
+  if (contribution <= 0) {
+    calculator.innerHTML = "Tällä hinnalla et saa katettua kustannuksia.";
+    return;
+  }
+
+  const needed = Math.ceil(fixedCost / contribution);
+  const packages = Math.ceil(needed / portionsPerPackage);
+
+  calculator.innerHTML =
+    "Kannattavuusraja: " + needed + " annosta<br>" +
+    "Vähintään " + packages + " pakettia";
+}
+
+function playWeek() {
+  const price = Number(document.getElementById("price").value);
+  const packages = Number(document.getElementById("packages").value);
+  const weather = Math.floor(Math.random() * 11);
+
+  const maxSales = packages * portionsPerPackage;
+  const demand = 600 * (weather / 10) * (5 / price);
+  const sales = Math.min(maxSales, demand);
+
+  const revenue = sales * price;
+  const costs = packages * packagePrice + fixedCost;
+  const profit = revenue - costs;
+
+  result.innerHTML =
+    "<h3>Viikko " + week + "</h3>" +
+    "Sää: " + weather + "/10<br>" +
+    "Myynti: " + Math.round(sales) + " annosta<br>" +
+    "Tulos: " + profit.toFixed(0) + " €";
+
+  week++;
+}
+
+document.getElementById("price").addEventListener("input", updateCalculator);
+document.getElementById("playButton").addEventListener("click", playWeek);
+
+updateCalculator();
+</script>
+
+</body>
+</html>
