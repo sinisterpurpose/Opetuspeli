@@ -2,20 +2,217 @@
 <html lang="fi">
 <head>
 <meta charset="UTF-8">
-<title>Testi</title>
+<title>Jäätelökioski</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  padding: 20px;
+}
+.box {
+  background: white;
+  padding: 20px;
+  max-width: 800px;
+  margin: auto;
+}
+h1 {
+  color: #d35400;
+}
+select, input {
+  margin-bottom: 10px;
+}
+.info {
+  background: #fef5e7;
+  padding: 10px;
+  margin: 10px 0;
+}
+.calc {
+  background: #e8f8f5;
+  padding: 10px;
+  margin: 10px 0;
+}
+button {
+  padding: 10px 20px;
+  font-size: 16px;
+}
+</style>
 </head>
 
 <body>
-<h1>TESTI</h1>
+<div class="box">
 
-<p>Jos näet tämän, HTML latautuu.</p>
+<h1>🍦 Jäätelökioski</h1>
 
-<label>Pakettien määrä:</label>
-<input type="number" value="5">
+<h3>1. Valitse kioskin sijainti</h3>
+<select id="location">
+  <option value="uimaranta">Uimaranta</option>
+  <option value="puisto">Puisto</option>
+  <option value="kauppakeskus">Kauppakeskus</option>
+</select>
 
-<br><br>
+<div class="info" id="locationInfo"></div>
 
-<button>Pelaa viikko</button>
+<h3>2. Hinnoittelu ja tilaus</h3>
+
+<p>Jäätelön hinta (€ / annos):</p>
+<input type="number" id="price" value="3.5" step="0.1">
+
+<p>Tilattavat jäätelöpaketit (1 paketti = 50 annosta):</p>
+<input type="number" id="packages" value="8">
+
+<p>
+  <input type="checkbox" id="worker">
+  Palkkaa kesätyöntekijä
+</p>
+
+<div class="calc" id="calculator"></div>
+
+<button id="playButton">Pelaa viikko</button>
+
+<hr>
+<div id="result"></div>
+
+</div>
+
+<script>
+// --------------------
+// PELIN MUUTTUJAT
+// --------------------
+let week = 1;
+let fatigue = 20;
+
+const fixedCost = 500;
+const packagePrice = 30;
+const workerCost = 500;
+const portionsPerPackage = 50;
+
+const locations = {
+  uimaranta: {
+    name: "Uimaranta",
+    factor: 1.2,
+    description:
+      "☀️ Paljon asiakkaita helteellä. ❌ Kylmällä säällä myynti voi romahtaa. Suuri riski, suuri potentiaali."
+  },
+  puisto: {
+    name: "Puisto",
+    factor: 1.0,
+    description:
+      "🌳 Tasainen asiakasvirta. Kohtalainen riski ja ennustettava myynti."
+  },
+  kauppakeskus: {
+    name: "Kauppakeskus",
+    factor: 0.9,
+    description:
+      "🏬 Vähemmän sään vaikutusta. Vakaa mutta matalampi huippumyynti."
+  }
+};
+
+// --------------------
+// ELEMENTIT
+// --------------------
+const locationSelect = document.getElementById("location");
+const locationInfo = document.getElementById("locationInfo");
+const priceInput = document.getElementById("price");
+const packagesInput = document.getElementById("packages");
+const workerCheckbox = document.getElementById("worker");
+const calculator = document.getElementById("calculator");
+const result = document.getElementById("result");
+const playButton = document.getElementById("playButton");
+
+// --------------------
+// TOIMINNOT
+// --------------------
+function updateLocationInfo() {
+  const loc = locations[locationSelect.value];
+  locationInfo.innerHTML = `
+    <strong>${loc.name}</strong><br>
+    ${loc.description}<br>
+    Kiinteät kustannukset: ${fixedCost} € / viikko
+  `;
+  updateCalculator();
+}
+
+function updateCalculator() {
+  const price = Number(priceInput.value);
+  const variableCostPerPortion = packagePrice / portionsPerPackage;
+  const contributionMargin = price - variableCostPerPortion;
+
+  if (contributionMargin <= 0) {
+    calculator.innerHTML =
+      "❌ Tällä hinnalla et kata edes jäätelön hankintahintaa.";
+    return;
+  }
+
+  const breakEvenPortions = Math.ceil(fixedCost / contributionMargin);
+  const minPackages = Math.ceil(breakEvenPortions / portionsPerPackage);
+
+  calculator.innerHTML = `
+    <strong>Kannattavuuslaskuri</strong><br>
+    Katetuotto / annos: ${contributionMargin.toFixed(2)} €<br>
+    Kannattavuusraja: ${breakEvenPortions} annosta / viikko<br>
+    → Vähintään ${minPackages} pakettia
+  `;
+}
+
+function playWeek() {
+  const price = Number(priceInput.value);
+  const packages = Number(packagesInput.value);
+  const loc = locations[locationSelect.value];
+  const worker = workerCheckbox.checked;
+
+  const weather = Math.floor(Math.random() * 11); // 0–10
+  let demand = 800 * (weather / 10) * loc.factor;
+  demand *= (5 / price);
+
+  let maxSales = packages * portionsPerPackage;
+  let sales = Math.min(demand, maxSales);
+
+  fatigue += worker ? -5 : 10;
+  fatigue = Math.max(0, Math.min(100, fatigue));
+
+  if (fatigue > 70) {
+    sales *= 0.85;
+  }
+
+  const revenue = sales * price;
+  const costs =
+    packages * packagePrice +
+    fixedCost +
+    (worker ? workerCost : 0);
+
+  const profit = revenue - costs;
+
+  let rating = "Kohtalainen viikko";
+  if (profit < 0) rating = "❌ Huono viikko";
+  if (profit > 500) rating = "✅ Hyvä viikko";
+  if (profit > 600) rating = "🌟 Erinomainen viikko";
+
+  result.innerHTML = `
+    <h3>Viikko ${week}</h3>
+    Sää: ${weather}/10<br>
+    Myynti: ${Math.round(sales)} annosta<br>
+    Tulos: ${profit.toFixed(0)} €<br>
+    Jaksaminen: ${fatigue}/100<br>
+    <strong>${rating}</strong>
+  `;
+
+  week++;
+}
+
+// --------------------
+// EVENT LISTENERIT
+// (TÄMÄ KORJAA GOOGLE SITES -ONGELMAN)
+// --------------------
+locationSelect.addEventListener("change", updateLocationInfo);
+priceInput.addEventListener("input", updateCalculator);
+playButton.addEventListener("click", playWeek);
+
+// --------------------
+// ALUSTUS
+// --------------------
+updateLocationInfo();
+</script>
 
 </body>
 </html>
