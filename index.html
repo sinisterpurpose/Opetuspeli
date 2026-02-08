@@ -7,10 +7,10 @@
 <style>
 body {
   font-family: Arial, sans-serif;
-  background: #f4f8fb;
-  padding: 20px;
+  background: #f2f6fa;
   max-width: 900px;
   margin: auto;
+  padding: 20px;
 }
 
 h1, h2 {
@@ -22,7 +22,7 @@ h1, h2 {
   padding: 15px;
   margin-bottom: 15px;
   border-radius: 8px;
-  box-shadow: 0 0 5px rgba(0,0,0,0.1);
+  box-shadow: 0 0 6px rgba(0,0,0,0.1);
 }
 
 label {
@@ -34,21 +34,19 @@ button {
   margin-top: 15px;
   padding: 10px 20px;
   font-size: 16px;
-  cursor: pointer;
 }
 
 .progress {
   background: #ddd;
+  height: 20px;
   border-radius: 10px;
   overflow: hidden;
-  height: 20px;
-  margin-top: 5px;
 }
 
 .progress-bar {
   height: 100%;
-  background: green;
   width: 80%;
+  background: green;
 }
 </style>
 </head>
@@ -58,15 +56,17 @@ button {
 <h1>🍦 Jäätelökioski</h1>
 
 <div class="box">
-<h2>Viikko {{viikko}}</h2>
+<h2 id="weekTitle">Viikko 1</h2>
 
-<p><b>Sää:</b> <span id="weatherText"></span> (ennuste: <span id="forecastText"></span>)</p>
+<p><b>Sijainti:</b> <span id="locationText"></span></p>
+<p><b>Sää:</b> <span id="weatherText"></span><br>
+Ennuste: <span id="forecastText"></span></p>
 
 <p><b>Jaksaminen:</b> <span id="energyValue"></span>/100</p>
 <div class="progress">
   <div class="progress-bar" id="energyBar"></div>
 </div>
-
+<p id="energyText"></p>
 </div>
 
 <div class="box">
@@ -97,7 +97,16 @@ let energy = 80;
 
 const portionsPerPackage = 50;
 const packagePrice = 30;
-const fixedCost = 500;
+const fixedCost = 600;
+
+const locations = [
+  { name: "Puisto", multiplier: [0.6,0.8,1.0,1.2,1.3,1.2] },
+  { name: "Kauppakeskus", multiplier: [1.1,1.1,1.0,0.9,0.8,0.7] },
+  { name: "Uimaranta", multiplier: [0.4,0.5,0.8,1.3,1.5,1.7] }
+];
+
+const location = locations[Math.floor(Math.random() * locations.length)];
+document.getElementById("locationText").innerText = location.name;
 
 const weatherTexts = [
   "Kylmää ja rankkasadetta",
@@ -108,22 +117,36 @@ const weatherTexts = [
   "Helle"
 ];
 
-function updateEnergyBar() {
+function updateEnergyUI() {
+  document.getElementById("energyValue").innerText = energy;
   const bar = document.getElementById("energyBar");
   bar.style.width = energy + "%";
 
-  if (energy > 60) bar.style.background = "green";
-  else if (energy > 30) bar.style.background = "orange";
-  else bar.style.background = "red";
+  let text = "";
+  if (energy >= 70) {
+    bar.style.background = "green";
+    text = "😊 Hyvä vire – jaksat palvella asiakkaita tehokkaasti.";
+  } else if (energy >= 40) {
+    bar.style.background = "yellow";
+    text = "😐 Väsyttää hieman – keskittyminen herpaantuu.";
+  } else if (energy >= 20) {
+    bar.style.background = "orange";
+    text = "😓 Olet väsynyt – myynti ja palvelu kärsivät.";
+  } else if (energy > 0) {
+    bar.style.background = "red";
+    text = "🥵 Uupumus – kioski ei toimi täydellä teholla.";
+  } else {
+    bar.style.background = "black";
+    text = "🚫 Täysin uupunut – kioski on käytännössä kiinni.";
+  }
 
-  document.getElementById("energyValue").innerText = energy;
+  document.getElementById("energyText").innerText = text;
 }
 
 function playWeek() {
   const price = Number(document.getElementById("price").value);
   const orderedPackages = Number(document.getElementById("packages").value);
 
-  // Sää
   const forecast = Math.floor(Math.random() * 6);
   let weather = forecast + Math.floor(Math.random() * 5 - 2);
   weather = Math.max(0, Math.min(5, weather));
@@ -131,37 +154,40 @@ function playWeek() {
   document.getElementById("weatherText").innerText = weatherTexts[weather];
   document.getElementById("forecastText").innerText = weatherTexts[forecast];
 
-  // Kysyntä
-  let baseDemand = 200 + weather * 120;
-  baseDemand *= (4 / price);
+  // Kokonaiskysyntä kaupungissa
+  let totalDemand = 800 + weather * 400;
+
+  // Sijainnin vaikutus
+  totalDemand *= location.multiplier[weather];
+
+  // Kilpailijat (2 kpl)
+  const competitors = 2;
+  const share = 1 / (competitors + 1);
+  let demand = totalDemand * share;
+
+  // Hinnan vaikutus
+  demand *= (4 / price);
 
   // Jaksamisen vaikutus
-  let energyFactor = 1;
-  if (energy < 60) energyFactor = 0.9;
-  if (energy < 40) energyFactor = 0.75;
-  if (energy < 20) energyFactor = 0.5;
-
-  baseDemand *= energyFactor;
+  if (energy < 60) demand *= 0.8;
+  if (energy < 30) demand *= 0.5;
+  if (energy < 10) demand *= 0.25;
+  if (energy <= 0) demand = 0;
 
   const maxSales = orderedPackages * portionsPerPackage;
-  const sold = Math.min(Math.floor(baseDemand), maxSales);
+  const sold = Math.min(Math.floor(demand), maxSales);
 
   const revenue = sold * price;
   const costs = orderedPackages * packagePrice + fixedCost;
   const profit = revenue - costs;
-
   cash += profit;
 
-  // Jaksamisen muutos
-  let energyLoss = 5;
-  if (sold > 300) energyLoss += 5;
-  if (weather <= 1) energyLoss += 5;
-  if (sold > 500) energyLoss += 5;
-
-  energy -= energyLoss;
-  energy = Math.max(0, energy);
-
-  updateEnergyBar();
+  // Jaksaminen
+  let fatigue = 5;
+  if (sold > 300) fatigue += 5;
+  if (weather <= 1) fatigue += 5;
+  if (sold > 500) fatigue += 5;
+  energy = Math.max(0, energy - fatigue);
 
   document.getElementById("result").innerHTML = `
     <p>Myyty: <b>${sold}</b> annosta</p>
@@ -172,9 +198,11 @@ function playWeek() {
   `;
 
   week++;
+  document.getElementById("weekTitle").innerText = "Viikko " + week;
+  updateEnergyUI();
 }
 
-updateEnergyBar();
+updateEnergyUI();
 </script>
 
 </body>
