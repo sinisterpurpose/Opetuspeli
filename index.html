@@ -13,7 +13,7 @@ body {
 .box {
   background: white;
   padding: 20px;
-  max-width: 800px;
+  max-width: 900px;
   margin: auto;
 }
 .info {
@@ -54,8 +54,8 @@ button {
 
 <div class="info">
 <strong>Uimaranta:</strong> Erittäin sääherkkä, huippumyynti helteellä.<br>
-<strong>Puisto:</strong> Tasainen, toimii useimmilla säillä.<br>
-<strong>Kauppakeskus:</strong> Vakaata kysyntää, hyötyy huonosta säästä.
+<strong>Puisto:</strong> Tasainen ja ennustettava.<br>
+<strong>Kauppakeskus:</strong> Vakaa, hyötyy huonosta säästä.
 </div>
 
 <h3>Hinnoittelu ja tilaus</h3>
@@ -67,7 +67,6 @@ button {
 <input type="number" id="packages" value="8" min="0"><br><br>
 
 <div class="calc" id="calculator"></div>
-
 <div class="info" id="forecast"></div>
 
 <button id="playButton">Pelaa viikko</button>
@@ -88,7 +87,7 @@ const packagePrice = 30;
 const portionsPerPackage = 50;
 const totalWeeks = 12;
 
-/* ---- TILAMUUTTUJAT ---- */
+/* ---- TILA ---- */
 let week = 1;
 let totalRevenue = 0;
 let totalCosts = 0;
@@ -108,31 +107,47 @@ const playButton = document.getElementById("playButton");
 const forecastBox = document.getElementById("forecast");
 const locationSelect = document.getElementById("location");
 
-/* ---- SÄÄN KUVAUS ---- */
-function weatherDescription(value) {
-  if (value <= 1) return "Kylmää ja rankkasadetta";
-  if (value <= 3) return "Hyvin sateista";
-  if (value <= 5) return "Vaihtelevaa";
-  if (value <= 7) return "Lämmin kesäsää";
-  if (value <= 9) return "Erittäin lämmin kesäsää";
+/* ---- SÄÄ ---- */
+function weatherDescription(v) {
+  if (v <= 1) return "Kylmää ja rankkasadetta";
+  if (v <= 3) return "Hyvin sateista";
+  if (v <= 5) return "Vaihtelevaa";
+  if (v <= 7) return "Lämmin kesäsää";
+  if (v <= 9) return "Erittäin lämmin kesäsää";
   return "Helle";
 }
 
 /* ---- SÄÄKERROIN SIJAINNIN MUKAAN ---- */
 function weatherFactor(weather, location) {
-  if (location === "beach") {
-    return Math.max(0.2, weather / 10); // huono sää tappaa myynnin
-  }
-  if (location === "park") {
-    return 0.6 + weather / 20; // tasainen
-  }
-  if (location === "mall") {
-    return 1.1 - weather / 25; // huono sää = etu
-  }
+  if (location === "beach") return Math.max(0.2, weather / 10);
+  if (location === "park") return 0.6 + weather / 20;
+  if (location === "mall") return 1.1 - weather / 25;
   return 1;
 }
 
-/* ---- KANNATTAVUUSLASKURI + ENNUSTE ---- */
+/* ---- KOKONAISKYSYNTÄ ---- */
+function totalDemand(weather) {
+  // koko kaupungin viikottainen maksimikysyntä
+  return Math.round(2500 * (0.4 + weather / 10));
+}
+
+/* ---- KILPAILIJAT ---- */
+function competitors(weather) {
+  return [
+    {
+      name: "Kilpailija A",
+      price: 3 + Math.random(),
+      demand: Math.round(700 * (weather / 10))
+    },
+    {
+      name: "Kilpailija B",
+      price: 3.5 + Math.random(),
+      demand: Math.round(600 * (weather / 10))
+    }
+  ];
+}
+
+/* ---- LASKURI + ENNUSTE ---- */
 function updateCalculator() {
   const price = Number(priceInput.value);
   const variableCost = packagePrice / portionsPerPackage;
@@ -142,23 +157,19 @@ function updateCalculator() {
     calculator.innerHTML =
       "⚠️ Tällä hinnalla et saa katettua edes muuttuvia kustannuksia.";
   } else {
-    const neededPortions = Math.ceil(fixedCost / contribution);
-    const neededPackages = Math.ceil(neededPortions / portionsPerPackage);
-
+    const needed = Math.ceil(fixedCost / contribution);
     calculator.innerHTML =
       `<strong>Kriittinen piste:</strong><br>
-       ${neededPortions} annosta / viikko<br>
-       (${neededPackages} pakettia)`;
+       ${needed} annosta / viikko`;
   }
 
   forecastWeather = Math.floor(Math.random() * 11);
-  const error = Math.floor(Math.random() * 5) - 2;
-  let shownForecast = forecastWeather + error;
-  shownForecast = Math.max(0, Math.min(10, shownForecast));
+  const err = Math.floor(Math.random() * 5) - 2;
+  let shown = Math.max(0, Math.min(10, forecastWeather + err));
 
   forecastBox.innerHTML =
-    `<strong>Sääennuste:</strong> ${shownForecast}/10<br>
-     (${weatherDescription(shownForecast)})`;
+    `<strong>Sääennuste:</strong> ${shown}/10<br>
+     (${weatherDescription(shown)})`;
 }
 
 /* ---- VIIKKO ---- */
@@ -168,11 +179,17 @@ function playWeek() {
   const location = locationSelect.value;
 
   const weather = forecastWeather;
-  const factor = weatherFactor(weather, location);
-  const maxSales = orderedPackages * portionsPerPackage;
+  const cityDemand = totalDemand(weather);
+  const rivals = competitors(weather);
 
-  const baseDemand = 600 * factor * (5 / price);
-  const sales = Math.min(maxSales, Math.round(baseDemand));
+  let remainingDemand = cityDemand;
+  rivals.forEach(r => remainingDemand -= r.demand);
+  remainingDemand = Math.max(0, remainingDemand);
+
+  const factor = weatherFactor(weather, location);
+  const potentialSales = Math.round(remainingDemand * factor * (5 / price));
+  const maxSales = orderedPackages * portionsPerPackage;
+  const sales = Math.min(maxSales, potentialSales);
 
   const revenue = sales * price;
   const costs = orderedPackages * packagePrice + fixedCost;
@@ -180,15 +197,14 @@ function playWeek() {
 
   totalRevenue += revenue;
   totalCosts += costs;
-
-  if (profit >= 0) goodWeeks++;
-  else badWeeks++;
+  profit >= 0 ? goodWeeks++ : badWeeks++;
 
   result.innerHTML =
-    `<strong>Toteutunut sää:</strong> ${weather}/10<br>
-     (${weatherDescription(weather)})<br>
-     <strong>Sijainnin vaikutus:</strong> ${factor.toFixed(2)}<br>
-     <strong>Myynti:</strong> ${sales} annosta<br>
+    `<strong>Toteutunut sää:</strong> ${weather}/10 (${weatherDescription(weather)})<br>
+     <strong>Kokonaiskysyntä kaupungissa:</strong> ${cityDemand} annosta<br>
+     <strong>Kilpailijoiden myynti:</strong><br>
+     ${rivals.map(r => `${r.name}: ${r.demand} annosta (hinta ${r.price.toFixed(2)} €)`).join("<br>")}<br><br>
+     <strong>Sinun myyntisi:</strong> ${sales} annosta<br>
      <strong>Viikon tulos:</strong> ${profit.toFixed(0)} €`;
 
   week++;
@@ -201,7 +217,6 @@ function playWeek() {
 /* ---- LOPPURAPORTTI ---- */
 function endGame() {
   gameArea.classList.add("hidden");
-
   const finalProfit = totalRevenue - totalCosts;
 
   reportArea.classList.remove("hidden");
@@ -212,15 +227,15 @@ function endGame() {
     <p><strong>Tulos ennen veroja:</strong> ${finalProfit.toFixed(0)} €</p>
     <p><strong>Hyviä viikkoja:</strong> ${goodWeeks}</p>
     <p><strong>Huonoja viikkoja:</strong> ${badWeeks}</p>
-    <p><strong>Kokonaisarvio:</strong><br>
+    <p><strong>Arvio:</strong><br>
       ${finalProfit > 0
-        ? "Sijainti ja hinnoittelu tukivat toisiaan."
-        : "Sää ja sijainti aiheuttivat haasteita."}
+        ? "Menestyit kilpailussa ja hyödynsit markkinatilanteen."
+        : "Kilpailu ja kysyntä rajoittivat kannattavuutta."}
     </p>
   `;
 }
 
-/* ---- TAPAHTUMAT ---- */
+/* ---- EVENTIT ---- */
 priceInput.addEventListener("input", updateCalculator);
 packagesInput.addEventListener("input", updateCalculator);
 locationSelect.addEventListener("change", updateCalculator);
