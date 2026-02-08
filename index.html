@@ -60,4 +60,138 @@ Kauppakeskus = vakaa mutta matalampi huippumyynti.
 
 <h3>Hinnoittelu ja tilaus</h3>
 
-<label>Jäätelön hinta (€ / ann
+<label>Jäätelön hinta (€ / annos)</label><br>
+<input type="number" id="price" value="3.5" step="0.1"><br><br>
+
+<label>Tilattavat jäätelöpaketit (1 paketti = 50 annosta)</label><br>
+<input type="number" id="packages" value="8" min="0"><br><br>
+
+<div class="calc" id="calculator"></div>
+
+<button id="playButton">Pelaa viikko</button>
+
+<hr>
+<div id="result"></div>
+
+</div>
+
+<div id="reportArea" class="hidden"></div>
+
+</div>
+
+<script>
+/* ---- VAKIOT ---- */
+const fixedCost = 500;
+const packagePrice = 30;
+const portionsPerPackage = 50;
+const totalWeeks = 12;
+
+/* ---- TILAMUUTTUJAT ---- */
+let week = 1;
+let totalRevenue = 0;
+let totalCosts = 0;
+let goodWeeks = 0;
+let badWeeks = 0;
+
+/* ---- ELEMENTIT ---- */
+const priceInput = document.getElementById("price");
+const packagesInput = document.getElementById("packages");
+const calculator = document.getElementById("calculator");
+const result = document.getElementById("result");
+const weekNumber = document.getElementById("weekNumber");
+const reportArea = document.getElementById("reportArea");
+const gameArea = document.getElementById("gameArea");
+const playButton = document.getElementById("playButton");
+
+/* ---- KANNATTAVUUSLASKURI ---- */
+function updateCalculator() {
+  const price = Number(priceInput.value);
+  const variableCost = packagePrice / portionsPerPackage;
+  const contribution = price - variableCost;
+
+  if (contribution <= 0) {
+    calculator.innerHTML =
+      "⚠️ Tällä hinnalla et saa katettua edes muuttuvia kustannuksia.";
+    return;
+  }
+
+  const neededPortions = Math.ceil(fixedCost / contribution);
+  const neededPackages = Math.ceil(neededPortions / portionsPerPackage);
+
+  calculator.innerHTML =
+    `<strong>Kriittinen piste:</strong><br>
+     ${neededPortions} annosta / viikko<br>
+     (${neededPackages} pakettia)`;
+}
+
+/* ---- VIIKON PELAAMINEN ---- */
+function playWeek() {
+  const price = Number(priceInput.value);
+  const orderedPackages = Number(packagesInput.value);
+  const locationFactor = Number(document.getElementById("location").value);
+
+  const weather = Math.floor(Math.random() * 11); // 0–10
+  const maxSales = orderedPackages * portionsPerPackage;
+
+  const baseDemand =
+    600 * (weather / 10) * locationFactor * (5 / price);
+
+  const sales = Math.min(maxSales, Math.round(baseDemand));
+
+  const revenue = sales * price;
+  const costs = orderedPackages * packagePrice + fixedCost;
+  const profit = revenue - costs;
+
+  totalRevenue += revenue;
+  totalCosts += costs;
+
+  if (profit >= 0) goodWeeks++;
+  else badWeeks++;
+
+  result.innerHTML =
+    `<strong>Sää:</strong> ${weather}/10<br>
+     <strong>Myynti:</strong> ${sales} annosta<br>
+     <strong>Viikon tulos:</strong> ${profit.toFixed(0)} €`;
+
+  week++;
+  weekNumber.textContent = week;
+
+  if (week > totalWeeks) {
+    endGame();
+  }
+}
+
+/* ---- LOPPURAPORTTI ---- */
+function endGame() {
+  gameArea.classList.add("hidden");
+
+  const finalProfit = totalRevenue - totalCosts;
+
+  reportArea.classList.remove("hidden");
+  reportArea.innerHTML = `
+    <h2>📄 Loppuraportti</h2>
+    <p><strong>Kesätyöjakso:</strong> 12 viikkoa</p>
+    <p><strong>Liikevaihto:</strong> ${totalRevenue.toFixed(0)} €</p>
+    <p><strong>Kustannukset:</strong> ${totalCosts.toFixed(0)} €</p>
+    <p><strong>Tulos ennen veroja:</strong> ${finalProfit.toFixed(0)} €</p>
+    <p><strong>Hyviä viikkoja:</strong> ${goodWeeks}</p>
+    <p><strong>Huonoja viikkoja:</strong> ${badWeeks}</p>
+    <p><strong>Kokonaisarvio:</strong><br>
+      ${finalProfit > 0
+        ? "Kesä oli kannattava. Hinnoittelu ja tilaukset osuivat hyvin."
+        : "Kesä oli haastava. Riskit olivat suuria tai kysyntä jäi heikoksi."}
+    </p>
+  `;
+}
+
+/* ---- TAPAHTUMAT ---- */
+priceInput.addEventListener("input", updateCalculator);
+packagesInput.addEventListener("input", updateCalculator);
+playButton.addEventListener("click", playWeek);
+
+/* ---- ALUSTUS ---- */
+updateCalculator();
+</script>
+
+</body>
+</html>
