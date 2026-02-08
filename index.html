@@ -36,6 +36,11 @@ button {
   font-size: 16px;
 }
 
+select {
+  margin-top: 10px;
+  padding: 5px;
+}
+
 .progress {
   background: #ddd;
   height: 20px;
@@ -45,8 +50,6 @@ button {
 
 .progress-bar {
   height: 100%;
-  width: 80%;
-  background: green;
 }
 </style>
 </head>
@@ -55,8 +58,24 @@ button {
 
 <h1>🍦 Jäätelökioski</h1>
 
-<div class="box">
-  <h2 id="weekTitle">Viikko 1</h2>
+<div class="box" id="setupBox">
+  <h2>Aloitus</h2>
+  <p>Valitse kioskin sijainti. Sijainti vaikuttaa myyntiin eri sääolosuhteissa.</p>
+
+  <label>
+    Sijainti:
+    <select id="locationSelect">
+      <option value="0">Puisto</option>
+      <option value="1">Kauppakeskus</option>
+      <option value="2">Uimaranta</option>
+    </select>
+  </label>
+
+  <button id="startGame">Aloita peli</button>
+</div>
+
+<div class="box" id="gameBox" style="display:none;">
+  <h2 id="weekTitle">Viikko 1 / 12</h2>
 
   <p><b>Sijainti:</b> <span id="locationText"></span></p>
 
@@ -70,7 +89,7 @@ button {
   <p id="energyText"></p>
 </div>
 
-<div class="box">
+<div class="box" id="decisionBox" style="display:none;">
   <h2>Päätökset</h2>
 
   <label>
@@ -87,7 +106,7 @@ button {
 </div>
 
 <div class="box">
-  <h2>Viikon tulos</h2>
+  <h2>Tulos</h2>
   <div id="result"></div>
 </div>
 
@@ -95,8 +114,10 @@ button {
 document.addEventListener("DOMContentLoaded", () => {
 
   let week = 1;
+  const maxWeeks = 12;
   let cash = -500;
   let energy = 80;
+  let location;
 
   const portionsPerPackage = 50;
   const packagePrice = 30;
@@ -117,36 +138,38 @@ document.addEventListener("DOMContentLoaded", () => {
     "Helle"
   ];
 
-  const location = locations[Math.floor(Math.random() * locations.length)];
-  document.getElementById("locationText").innerText = location.name;
-
   function updateEnergyUI() {
-    document.getElementById("energyValue").innerText = energy;
     const bar = document.getElementById("energyBar");
     bar.style.width = energy + "%";
 
     let text = "";
+    let color = "green";
+
     if (energy >= 70) {
-      bar.style.background = "green";
       text = "😊 Hyvä vire – jaksat palvella asiakkaita tehokkaasti.";
+      color = "green";
     } else if (energy >= 40) {
-      bar.style.background = "yellow";
       text = "😐 Väsyttää hieman – keskittyminen herpaantuu.";
+      color = "yellow";
     } else if (energy >= 20) {
-      bar.style.background = "orange";
       text = "😓 Olet väsynyt – myynti ja palvelu kärsivät.";
+      color = "orange";
     } else if (energy > 0) {
-      bar.style.background = "red";
       text = "🥵 Uupumus – kioski ei toimi täydellä teholla.";
+      color = "red";
     } else {
-      bar.style.background = "black";
       text = "🚫 Täysin uupunut – kioski on käytännössä kiinni.";
+      color = "black";
     }
 
+    bar.style.background = color;
+    document.getElementById("energyValue").innerText = energy;
     document.getElementById("energyText").innerText = text;
   }
 
   function playWeek() {
+    if (week > maxWeeks) return;
+
     const price = Number(document.getElementById("price").value);
     const orderedPackages = Number(document.getElementById("packages").value);
 
@@ -160,8 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let totalDemand = 800 + weather * 400;
     totalDemand *= location.multiplier[weather];
 
-    const competitors = 2;
-    let demand = totalDemand / (competitors + 1);
+    let demand = totalDemand / 3;
     demand *= (4 / price);
 
     if (energy < 60) demand *= 0.8;
@@ -184,21 +206,40 @@ document.addEventListener("DOMContentLoaded", () => {
     energy = Math.max(0, energy - fatigue);
 
     document.getElementById("result").innerHTML = `
-      <p>Myyty: <b>${sold}</b> annosta</p>
-      <p>Tulot: ${revenue.toFixed(0)} €</p>
-      <p>Kulut: ${costs.toFixed(0)} €</p>
-      <p><b>Viikon tulos: ${profit.toFixed(0)} €</b></p>
+      <p>Viikko ${week}: Myyty <b>${sold}</b> annosta</p>
+      <p>Viikon tulos: <b>${profit.toFixed(0)} €</b></p>
       <p>Kassa yhteensä: ${cash.toFixed(0)} €</p>
     `;
 
-    week++;
-    document.getElementById("weekTitle").innerText = "Viikko " + week;
     updateEnergyUI();
+
+    if (week === maxWeeks) {
+      document.getElementById("playButton").disabled = true;
+      document.getElementById("result").innerHTML += `
+        <hr>
+        <p><b>Kesätyöjakso päättyi.</b></p>
+        <p>Lopullinen tulos: ${cash.toFixed(0)} €</p>
+      `;
+    }
+
+    week++;
+    document.getElementById("weekTitle").innerText = `Viikko ${week} / 12`;
   }
+
+  document.getElementById("startGame").addEventListener("click", () => {
+    const index = Number(document.getElementById("locationSelect").value);
+    location = locations[index];
+
+    document.getElementById("locationText").innerText = location.name;
+    document.getElementById("setupBox").style.display = "none";
+    document.getElementById("gameBox").style.display = "block";
+    document.getElementById("decisionBox").style.display = "block";
+
+    updateEnergyUI();
+  });
 
   document.getElementById("playButton").addEventListener("click", playWeek);
 
-  updateEnergyUI();
 });
 </script>
 
