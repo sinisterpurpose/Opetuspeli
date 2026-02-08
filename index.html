@@ -7,242 +7,174 @@
 <style>
 body {
   font-family: Arial, sans-serif;
-  background: #f4f4f4;
-  padding: 20px;
-}
-.box {
-  background: white;
+  background: #f4f8fb;
   padding: 20px;
   max-width: 900px;
   margin: auto;
 }
-.info {
-  background: #fef5e7;
-  padding: 10px;
-  margin: 10px 0;
+
+h1, h2 {
+  color: #2c3e50;
 }
-.calc {
-  background: #e8f8f5;
-  padding: 10px;
-  margin: 10px 0;
+
+.box {
+  background: white;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.1);
 }
+
+label {
+  display: block;
+  margin-top: 10px;
+}
+
 button {
+  margin-top: 15px;
   padding: 10px 20px;
   font-size: 16px;
+  cursor: pointer;
 }
-.hidden {
-  display: none;
+
+.progress {
+  background: #ddd;
+  border-radius: 10px;
+  overflow: hidden;
+  height: 20px;
+  margin-top: 5px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: green;
+  width: 80%;
 }
 </style>
 </head>
 
 <body>
-<div class="box">
 
 <h1>🍦 Jäätelökioski</h1>
 
-<div id="gameArea">
+<div class="box">
+<h2>Viikko {{viikko}}</h2>
 
-<h3>Viikko <span id="weekNumber">1</span> / 12</h3>
+<p><b>Sää:</b> <span id="weatherText"></span> (ennuste: <span id="forecastText"></span>)</p>
 
-<h3>Sijainti</h3>
-<select id="location">
-  <option value="beach">Uimaranta</option>
-  <option value="park">Puisto</option>
-  <option value="mall">Kauppakeskus</option>
-</select>
-
-<div class="info">
-<strong>Uimaranta:</strong> Erittäin sääherkkä, huippumyynti helteellä.<br>
-<strong>Puisto:</strong> Tasainen ja ennustettava.<br>
-<strong>Kauppakeskus:</strong> Vakaa, hyötyy huonosta säästä.
+<p><b>Jaksaminen:</b> <span id="energyValue"></span>/100</p>
+<div class="progress">
+  <div class="progress-bar" id="energyBar"></div>
 </div>
 
-<h3>Hinnoittelu ja tilaus</h3>
+</div>
 
-<label>Jäätelön hinta (€ / annos)</label><br>
-<input type="number" id="price" value="3.5" step="0.1"><br><br>
+<div class="box">
+<h2>Päätökset</h2>
 
-<label>Tilattavat jäätelöpaketit (1 paketti = 50 annosta)</label><br>
-<input type="number" id="packages" value="8" min="0"><br><br>
+<label>
+Hinta (€ / annos):
+<input type="number" id="price" value="3.5" step="0.1">
+</label>
 
-<div class="calc" id="calculator"></div>
-<div class="info" id="forecast"></div>
+<label>
+Tilattavat pakkaukset (5 l):
+<input type="number" id="packages" value="8">
+</label>
 
-<button id="playButton">Pelaa viikko</button>
+<button onclick="playWeek()">Pelaa viikko</button>
+</div>
 
-<hr>
+<div class="box">
+<h2>Viikon tulos</h2>
 <div id="result"></div>
-
-</div>
-
-<div id="reportArea" class="hidden"></div>
-
 </div>
 
 <script>
-/* ---- VAKIOT ---- */
-const fixedCost = 500;
-const packagePrice = 30;
-const portionsPerPackage = 50;
-const totalWeeks = 12;
-
-/* ---- TILA ---- */
 let week = 1;
-let totalRevenue = 0;
-let totalCosts = 0;
-let goodWeeks = 0;
-let badWeeks = 0;
-let forecastWeather = 0;
+let cash = -500;
+let energy = 80;
 
-/* ---- ELEMENTIT ---- */
-const priceInput = document.getElementById("price");
-const packagesInput = document.getElementById("packages");
-const calculator = document.getElementById("calculator");
-const result = document.getElementById("result");
-const weekNumber = document.getElementById("weekNumber");
-const reportArea = document.getElementById("reportArea");
-const gameArea = document.getElementById("gameArea");
-const playButton = document.getElementById("playButton");
-const forecastBox = document.getElementById("forecast");
-const locationSelect = document.getElementById("location");
+const portionsPerPackage = 50;
+const packagePrice = 30;
+const fixedCost = 500;
 
-/* ---- SÄÄ ---- */
-function weatherDescription(v) {
-  if (v <= 1) return "Kylmää ja rankkasadetta";
-  if (v <= 3) return "Hyvin sateista";
-  if (v <= 5) return "Vaihtelevaa";
-  if (v <= 7) return "Lämmin kesäsää";
-  if (v <= 9) return "Erittäin lämmin kesäsää";
-  return "Helle";
+const weatherTexts = [
+  "Kylmää ja rankkasadetta",
+  "Hyvin sateista",
+  "Vaihtelevaa",
+  "Lämmin kesäsää",
+  "Erittäin lämmin kesäsää",
+  "Helle"
+];
+
+function updateEnergyBar() {
+  const bar = document.getElementById("energyBar");
+  bar.style.width = energy + "%";
+
+  if (energy > 60) bar.style.background = "green";
+  else if (energy > 30) bar.style.background = "orange";
+  else bar.style.background = "red";
+
+  document.getElementById("energyValue").innerText = energy;
 }
 
-/* ---- SÄÄKERROIN SIJAINNIN MUKAAN ---- */
-function weatherFactor(weather, location) {
-  if (location === "beach") return Math.max(0.2, weather / 10);
-  if (location === "park") return 0.6 + weather / 20;
-  if (location === "mall") return 1.1 - weather / 25;
-  return 1;
-}
-
-/* ---- KOKONAISKYSYNTÄ ---- */
-function totalDemand(weather) {
-  // koko kaupungin viikottainen maksimikysyntä
-  return Math.round(2500 * (0.4 + weather / 10));
-}
-
-/* ---- KILPAILIJAT ---- */
-function competitors(weather) {
-  return [
-    {
-      name: "Kilpailija A",
-      price: 3 + Math.random(),
-      demand: Math.round(700 * (weather / 10))
-    },
-    {
-      name: "Kilpailija B",
-      price: 3.5 + Math.random(),
-      demand: Math.round(600 * (weather / 10))
-    }
-  ];
-}
-
-/* ---- LASKURI + ENNUSTE ---- */
-function updateCalculator() {
-  const price = Number(priceInput.value);
-  const variableCost = packagePrice / portionsPerPackage;
-  const contribution = price - variableCost;
-
-  if (contribution <= 0) {
-    calculator.innerHTML =
-      "⚠️ Tällä hinnalla et saa katettua edes muuttuvia kustannuksia.";
-  } else {
-    const needed = Math.ceil(fixedCost / contribution);
-    calculator.innerHTML =
-      `<strong>Kriittinen piste:</strong><br>
-       ${needed} annosta / viikko`;
-  }
-
-  forecastWeather = Math.floor(Math.random() * 11);
-  const err = Math.floor(Math.random() * 5) - 2;
-  let shown = Math.max(0, Math.min(10, forecastWeather + err));
-
-  forecastBox.innerHTML =
-    `<strong>Sääennuste:</strong> ${shown}/10<br>
-     (${weatherDescription(shown)})`;
-}
-
-/* ---- VIIKKO ---- */
 function playWeek() {
-  const price = Number(priceInput.value);
-  const orderedPackages = Number(packagesInput.value);
-  const location = locationSelect.value;
+  const price = Number(document.getElementById("price").value);
+  const orderedPackages = Number(document.getElementById("packages").value);
 
-  const weather = forecastWeather;
-  const cityDemand = totalDemand(weather);
-  const rivals = competitors(weather);
+  // Sää
+  const forecast = Math.floor(Math.random() * 6);
+  let weather = forecast + Math.floor(Math.random() * 5 - 2);
+  weather = Math.max(0, Math.min(5, weather));
 
-  let remainingDemand = cityDemand;
-  rivals.forEach(r => remainingDemand -= r.demand);
-  remainingDemand = Math.max(0, remainingDemand);
+  document.getElementById("weatherText").innerText = weatherTexts[weather];
+  document.getElementById("forecastText").innerText = weatherTexts[forecast];
 
-  const factor = weatherFactor(weather, location);
-  const potentialSales = Math.round(remainingDemand * factor * (5 / price));
+  // Kysyntä
+  let baseDemand = 200 + weather * 120;
+  baseDemand *= (4 / price);
+
+  // Jaksamisen vaikutus
+  let energyFactor = 1;
+  if (energy < 60) energyFactor = 0.9;
+  if (energy < 40) energyFactor = 0.75;
+  if (energy < 20) energyFactor = 0.5;
+
+  baseDemand *= energyFactor;
+
   const maxSales = orderedPackages * portionsPerPackage;
-  const sales = Math.min(maxSales, potentialSales);
+  const sold = Math.min(Math.floor(baseDemand), maxSales);
 
-  const revenue = sales * price;
+  const revenue = sold * price;
   const costs = orderedPackages * packagePrice + fixedCost;
   const profit = revenue - costs;
 
-  totalRevenue += revenue;
-  totalCosts += costs;
-  profit >= 0 ? goodWeeks++ : badWeeks++;
+  cash += profit;
 
-  result.innerHTML =
-    `<strong>Toteutunut sää:</strong> ${weather}/10 (${weatherDescription(weather)})<br>
-     <strong>Kokonaiskysyntä kaupungissa:</strong> ${cityDemand} annosta<br>
-     <strong>Kilpailijoiden myynti:</strong><br>
-     ${rivals.map(r => `${r.name}: ${r.demand} annosta (hinta ${r.price.toFixed(2)} €)`).join("<br>")}<br><br>
-     <strong>Sinun myyntisi:</strong> ${sales} annosta<br>
-     <strong>Viikon tulos:</strong> ${profit.toFixed(0)} €`;
+  // Jaksamisen muutos
+  let energyLoss = 5;
+  if (sold > 300) energyLoss += 5;
+  if (weather <= 1) energyLoss += 5;
+  if (sold > 500) energyLoss += 5;
+
+  energy -= energyLoss;
+  energy = Math.max(0, energy);
+
+  updateEnergyBar();
+
+  document.getElementById("result").innerHTML = `
+    <p>Myyty: <b>${sold}</b> annosta</p>
+    <p>Tulot: ${revenue.toFixed(0)} €</p>
+    <p>Kulut: ${costs.toFixed(0)} €</p>
+    <p><b>Viikon tulos: ${profit.toFixed(0)} €</b></p>
+    <p>Kassa yhteensä: ${cash.toFixed(0)} €</p>
+  `;
 
   week++;
-  weekNumber.textContent = week;
-
-  if (week > totalWeeks) endGame();
-  else updateCalculator();
 }
 
-/* ---- LOPPURAPORTTI ---- */
-function endGame() {
-  gameArea.classList.add("hidden");
-  const finalProfit = totalRevenue - totalCosts;
-
-  reportArea.classList.remove("hidden");
-  reportArea.innerHTML = `
-    <h2>📄 Loppuraportti</h2>
-    <p><strong>Liikevaihto:</strong> ${totalRevenue.toFixed(0)} €</p>
-    <p><strong>Kustannukset:</strong> ${totalCosts.toFixed(0)} €</p>
-    <p><strong>Tulos ennen veroja:</strong> ${finalProfit.toFixed(0)} €</p>
-    <p><strong>Hyviä viikkoja:</strong> ${goodWeeks}</p>
-    <p><strong>Huonoja viikkoja:</strong> ${badWeeks}</p>
-    <p><strong>Arvio:</strong><br>
-      ${finalProfit > 0
-        ? "Menestyit kilpailussa ja hyödynsit markkinatilanteen."
-        : "Kilpailu ja kysyntä rajoittivat kannattavuutta."}
-    </p>
-  `;
-}
-
-/* ---- EVENTIT ---- */
-priceInput.addEventListener("input", updateCalculator);
-packagesInput.addEventListener("input", updateCalculator);
-locationSelect.addEventListener("change", updateCalculator);
-playButton.addEventListener("click", playWeek);
-
-/* ---- ALUSTUS ---- */
-updateCalculator();
+updateEnergyBar();
 </script>
 
 </body>
